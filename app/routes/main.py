@@ -1,6 +1,6 @@
 import csv
 import io
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, render_template
 from pydantic import ValidationError
 from app.models.user import LoginPayload
 from app.models.product import Product, ProductDBModel, UpdateProduct
@@ -16,6 +16,18 @@ main_bp = Blueprint('main_bp', __name__)
 @main_bp.route('/')
 def index():
     return jsonify({"message": "Bem-vindo à API da StyleSync!"})
+
+@main_bp.route('/login_page')
+def login_page():
+    return render_template('login.html')
+
+@main_bp.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
+@main_bp.route('/upload_csv_page')
+def upload_csv_page():
+    return render_template('upload_csv.html')
 
 # --- ROTA DE LOGIN (Gera o Token) ---
 @main_bp.route('/login', methods=['POST'])

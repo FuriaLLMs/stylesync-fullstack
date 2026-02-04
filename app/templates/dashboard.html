@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>📦 Estoque de Produtos</h3>
+<table class="table table-hover bg-white shadow-sm">
+    <thead class="table-dark">
+        <tr>
+            <th>Nome</th>
+            <th>SKU</th>
+            <th>Preço</th>
+            <th>Estoque</th>
+        </tr>
+    </thead>
+    <tbody id="productTable"></tbody>
+</table>
+
+<script>
+    async function loadProducts() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            window.location.href = '/login_page';
+            return;
+        }
+
+        const res = await fetch('/products', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (res.status === 401) {
+            alert("Sessão expirada");
+            window.location.href = '/login_page';
+            return;
+        }
+
+        const products = await res.json();
+        const tbody = document.getElementById('productTable');
+
+        if (Array.isArray(products)) {
+            products.forEach(p => {
+                tbody.innerHTML += `<tr>
+                    <td>${p.name}</td>
+                    <td>${p.sku}</td>
+                    <td>R$ ${p.price.toFixed(2)}</td>
+                    <td>${p.stock}</td>
+                </tr>`;
+            });
+        } else {
+            console.error("Erro ao carregar produtos:", products);
+            tbody.innerHTML = `<tr><td colspan="4" class="text-danger">Erro ao carregar produtos. Verifique o console.</td></tr>`;
+        }
+
+    }
+    loadProducts();
+</script>
+{% endblock %}
