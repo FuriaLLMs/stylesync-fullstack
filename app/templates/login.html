@@ -13,17 +13,36 @@
 <script>
     document.getElementById('loginForm').onsubmit = async (e) => {
         e.preventDefault();
-        const res = await fetch('/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: user.value, password: pass.value })
-        });
-        const data = await res.json();
-        if (res.ok) {
-            localStorage.setItem('access_token', data.access_token);
-            window.location.href = '/dashboard';
-        } else {
-            alert('Erro: ' + (data.message || data.error));
+
+        const submitBtn = document.querySelector('button[type="submit"]');
+        submitBtn.disabled = true; // Evita cliques duplos
+        submitBtn.innerText = "Carregando...";
+
+        try {
+            // Tenta conectar com o servidor
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user.value, password: pass.value })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                // Sucesso: Salva token e redireciona
+                localStorage.setItem('access_token', data.access_token);
+                window.location.href = '/dashboard';
+            } else {
+                // Erro do Servidor (ex: senha errada)
+                alert('Erro: ' + (data.message || data.error));
+            }
+        } catch (error) {
+            // Erro de Conexão (ex: servidor desligado) - Corrige o "Failed to fetch"
+            console.error(error);
+            alert('Erro de conexão! Verifique se o servidor está rodando.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Acessar";
         }
     };
 </script>
