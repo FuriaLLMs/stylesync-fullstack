@@ -2,7 +2,7 @@ import csv
 import io
 from flask import Blueprint, jsonify, request, current_app, render_template
 from pydantic import ValidationError
-from app.models.user import LoginPayload
+from app.models.user import LoginPayload, UserDBModel
 from app.models.product import Product, ProductDBModel, UpdateProduct
 from app.models.sale import Sale # Importe o modelo de Venda
 from app import db
@@ -36,17 +36,21 @@ def login():
         raw_data = request.get_json()
         user_data = LoginPayload(**raw_data)
 
-        # Autenticação simulada (admin / 123)
-        if user_data.username == 'admin' and user_data.password == '123':
-            # Cria o Token JWT
-            token = jwt.encode({
-                "user_id": user_data.username,
-                "exp": datetime.now(timezone.utc) + timedelta(minutes=30) # Expira em 30 min
-            }, current_app.config['SECRET_KEY'], algorithm="HS256")
+        # Busca o usuário no banco
+        user_dict = db.users.find_one({"username": user_data.username})
+        
+        if user_dict:
+            user = UserDBModel(**user_dict)
+            if user.check_password(user_data.password):
+                # Cria o Token JWT
+                token = jwt.encode({
+                    "user_id": user.username,
+                    "exp": datetime.now(timezone.utc) + timedelta(minutes=30)
+                }, current_app.config['SECRET_KEY'], algorithm="HS256")
 
-            return jsonify({'access_token': token})
-        else:
-            return jsonify({"message": "Credenciais invalidas!"}), 401
+                return jsonify({'access_token': token})
+
+        return jsonify({"message": "Credenciais invalidas!"}), 401
 
     except ValidationError as e:
         return jsonify({"error": e.errors()}), 400
@@ -57,9 +61,27 @@ def login():
 @main_bp.route('/products', methods=['GET'])
 def get_products():
     if db is None: return jsonify({"error": "Database not connected"}), 500
-    products_cursor = db.products.find()
+    
+    # Parâmetros de paginação
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 20))
+    limit = min(limit, 100) # Limite máximo de 100
+    skip = (page - 1) * limit
+
+    total_products = db.products.count_documents({})
+    products_cursor = db.products.find().skip(skip).limit(limit)
+    
     products_list = [ProductDBModel(**product).model_dump(by_alias=True, exclude_none=True) for product in products_cursor]
-    return jsonify(products_list)
+    
+    return jsonify({
+        "data": products_list,
+        "meta": {
+            "page": page,
+            "limit": limit,
+            "total": total_products,
+            "pages": (total_products + limit - 1) // limit
+        }
+    })
 
 # --- ROTA DE CRIAÇÃO (Protegida) ---
 @main_bp.route('/products', methods=['POST'])
