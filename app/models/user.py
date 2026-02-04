@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, EmailStr
-from typing import Optional
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, Any
 from werkzeug.security import generate_password_hash, check_password_hash
 
 class LoginPayload(BaseModel):
@@ -18,4 +18,10 @@ class User(BaseModel):
         return check_password_hash(self.password_hash, password)
 
 class UserDBModel(User):
-    id: Optional[str] = Field(None, alias="_id")
+    # Aceita qualquer tipo (incluindo ObjectId) vindo do alias _id
+    id: Optional[Any] = Field(None, alias="_id")
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True
+    )

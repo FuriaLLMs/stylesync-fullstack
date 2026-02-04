@@ -54,9 +54,11 @@ def login():
         return jsonify({"message": "Credenciais invalidas!"}), 401
 
     except ValidationError as e:
-        return jsonify({"error": e.errors()}), 400
+        # include_input=False remove o valor original (ObjectId) do erro,
+        # permitindo que o jsonify serialize o resto sem crashar.
+        return jsonify({"error": e.errors(include_input=False)}), 400
     except Exception as e:
-        return jsonify({"error": f"Erro no login: {e}"}), 500
+        return jsonify({"error": f"Erro no login: {str(e)}"}), 500
 
 # --- ROTA DE LISTAGEM (Pública) ---
 @main_bp.route('/products', methods=['GET'])
