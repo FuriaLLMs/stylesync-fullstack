@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from app.models.user import LoginPayload, UserDBModel
 from app.models.product import Product, ProductDBModel, UpdateProduct
 from app.models.sale import Sale # Importe o modelo de Venda
-from app import db
+import app as app_module # Alterado para acesso dinâmico ao db
 from bson import ObjectId
 import jwt # Importação nova
 from datetime import datetime, timedelta, timezone # Importação nova
@@ -37,6 +37,7 @@ def login():
         user_data = LoginPayload(**raw_data)
 
         # Busca o usuário no banco
+        db = app_module.db
         user_dict = db.users.find_one({"username": user_data.username})
         
         if user_dict:
@@ -60,6 +61,7 @@ def login():
 # --- ROTA DE LISTAGEM (Pública) ---
 @main_bp.route('/products', methods=['GET'])
 def get_products():
+    db = app_module.db
     if db is None: return jsonify({"error": "Database not connected"}), 500
     
     # Parâmetros de paginação
@@ -87,6 +89,7 @@ def get_products():
 @main_bp.route('/products', methods=['POST'])
 @token_required # <--- O Guarda entra em ação aqui
 def create_product(token_data): # <--- Recebe os dados do token
+    db = app_module.db
     if db is None: return jsonify({"error": "Database not connected"}), 500
 
     try:
@@ -110,6 +113,7 @@ def create_product(token_data): # <--- Recebe os dados do token
 # (Mantenha as outras rotas GET id, PUT, DELETE, Upload iguais...)
 @main_bp.route('/product/<product_id>', methods=['GET'])
 def get_product_by_id(product_id):
+    db = app_module.db
     if db is None:
          return jsonify({"error": "Database not connected"}), 500
 
@@ -131,6 +135,7 @@ def get_product_by_id(product_id):
 @main_bp.route('/product/<product_id>', methods=['PUT'])
 @token_required # <--- Protegido com Token
 def update_product(token_data, product_id):
+    db = app_module.db
     if db is None: return jsonify({"error": "Database not connected"}), 500
 
     try:
@@ -166,6 +171,7 @@ def update_product(token_data, product_id):
 @main_bp.route('/product/<product_id>', methods=['DELETE'])
 @token_required # <--- Protegido com Token
 def delete_product(token_data, product_id):
+    db = app_module.db
     if db is None: return jsonify({"error": "Database not connected"}), 500
 
     try:
@@ -187,6 +193,7 @@ def delete_product(token_data, product_id):
 @main_bp.route('/sales/upload', methods=['POST'])
 @token_required # Somente usuários logados podem importar vendas
 def upload_sales(token_data):
+    db = app_module.db
     if db is None: return jsonify({"error": "Database not connected"}), 500
 
     # 1. Verifica se o arquivo foi enviado

@@ -5,7 +5,7 @@ services:
       - "5000:5000"
     environment:
       - MONGO_URI=mongodb://mongo:27017/stylesync
-      - SECRET_KEY=dev_secret_key_change_in_prod
+      - SECRET_KEY=${SECRET_KEY}
     depends_on:
       - mongo
 
