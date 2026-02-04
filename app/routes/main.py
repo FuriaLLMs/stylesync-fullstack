@@ -1,7 +1,10 @@
+import csv
+import io
 from flask import Blueprint, jsonify, request, current_app
 from pydantic import ValidationError
 from app.models.user import LoginPayload
 from app.models.product import Product, ProductDBModel, UpdateProduct
+from app.models.sale import Sale # Importe o modelo de Venda
 from app import db
 from bson import ObjectId
 import jwt # Importação nova
@@ -146,6 +149,62 @@ def delete_product(token_data, product_id):
     except Exception as e:
         return jsonify({"error": f"Erro ao deletar: {e}"}), 400
 
+# RF: O sistema deve permitir a importacao de vendas através de um arquivo
 @main_bp.route('/sales/upload', methods=['POST'])
-def upload_sales():
-    return jsonify({"message": "Esta é a rota de upload do arquivo de vendas"})
+@token_required # Somente usuários logados podem importar vendas
+def upload_sales(token_data):
+    if db is None: return jsonify({"error": "Database not connected"}), 500
+
+    # 1. Verifica se o arquivo foi enviado
+    if 'file' not in request.files:
+        return jsonify({"error": "Nenhum arquivo foi enviado"}), 400
+    
+    file = request.files['file']
+
+    # 2. Verifica se o nome do arquivo não está vazio
+    if file.filename == '':
+        return jsonify({"error": "Nenhum arquivo selecionado"}), 400
+    
+    # 3. Verifica a extensão e processa
+    if file and file.filename.endswith('.csv'):
+        try:
+            # Lê o arquivo da memória e decodifica para texto
+            csv_stream = io.StringIO(file.stream.read().decode('UTF-8'), newline=None)
+            csv_reader = csv.DictReader(csv_stream)
+            
+            sales_to_insert = []
+            errors = []
+            
+            # 4. Itera sobre as linhas do CSV
+            for row_num, row in enumerate(csv_reader, 1):
+                try:
+                    # Valida cada linha com o Pydantic
+                    # O Pydantic é inteligente para converter strings do CSV ("2023-01-01") em objetos (date)
+                    sale_data = Sale(**row)
+                    
+                    # Prepara para inserir (exclui o id para o Mongo gerar)
+                    sales_to_insert.append(sale_data.model_dump(exclude={'id'}))
+                    
+                except ValidationError as e:
+                    errors.append(f"Linha {row_num}: Dados inválidos - {e.errors()}")
+                except Exception as e:
+                    errors.append(f"Linha {row_num}: Erro inesperado - {str(e)}")
+            
+            # 5. Insere os dados válidos no Banco (Bulk Insert)
+            if sales_to_insert:
+                try:
+                    db.sales.insert_many(sales_to_insert)
+                except Exception as e:
+                    return jsonify({"error": f"Erro ao inserir dados no banco: {str(e)}"}), 500
+            
+            # 6. Retorna o relatório do processamento
+            return jsonify({
+                "message": "Upload processado com sucesso.",
+                "vendas_importadas": len(sales_to_insert),
+                "erros_encontrados": errors
+            }), 200
+
+        except Exception as e:
+             return jsonify({"error": f"Erro ao processar arquivo: {str(e)}"}), 500
+    
+    return jsonify({"error": "Formato de arquivo inválido. Apenas .csv é permitido"}), 400
